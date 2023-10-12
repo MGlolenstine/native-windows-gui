@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use crate::win32::window_helper as wh;
 use crate::win32::base_helper::check_hwnd;
-use crate::{NwgError, Font, RawEventHandler, bind_raw_event_handler_inner, unbind_raw_event_handler};
-use super::{ControlBase, ControlHandle, TextInput, Button, ButtonFlags, TextInputFlags};
+use crate::{NwgError, Font, RawEventHandler, bind_raw_event_handler_inner, unbind_raw_event_handler, Label, LabelFlags};
+use super::{ControlBase, ControlHandle, Button, ButtonFlags};
 
 const NOT_BOUND: &'static str = "UpDown is not yet bound to a winapi object";
 const BAD_HANDLE: &'static str = "INTERNAL ERROR: UpDown handle is not HWND!";
@@ -117,11 +117,10 @@ fn build_number_select(num_select: &mut nwg::NumberSelect, window: &nwg::Window,
 pub struct NumberSelect {
     pub handle: ControlHandle,
     data: Rc<RefCell<NumberSelectData>>,
-    edit: TextInput,
+    edit: Label,
     btn_up: Button,
     btn_down: Button,
     handler: Option<RawEventHandler>,
-    keyboard_editable: Rc<RefCell<bool>>,
 }
 
 impl NumberSelect {
@@ -135,7 +134,6 @@ impl NumberSelect {
             flags: None,
             font: None,
             parent: None,
-            keyboard_editable: false,
         }
     }
 
@@ -189,6 +187,9 @@ impl NumberSelect {
 
     /// Enable or disable the control
     pub fn set_enabled(&self, v: bool) {
+        self.edit.set_enabled(v);
+        self.btn_up.set_enabled(v);
+        self.btn_down.set_enabled(v);
         let handle = check_hwnd(&self.handle, NOT_BOUND, BAD_HANDLE);
         unsafe { wh::set_window_enabled(handle, v) }
     }
@@ -245,12 +246,6 @@ impl NumberSelect {
         use winapi::um::winuser::{WS_BORDER, WS_CHILD, WS_CLIPCHILDREN};
         WS_CHILD | WS_BORDER | WS_CLIPCHILDREN
     }
-
-    pub fn set_keyboard_editable(&self, editable: bool){
-        *self.keyboard_editable.borrow_mut() = editable;   
-        self.edit.set_readonly(!editable);
-    }
-
 }
 
 impl Drop for NumberSelect {
@@ -273,7 +268,6 @@ pub struct NumberSelectBuilder<'a> {
     flags: Option<NumberSelectFlags>,
     font: Option<&'a Font>,
     parent: Option<ControlHandle>,
-    keyboard_editable: bool,
 }
 
 impl<'a> NumberSelectBuilder<'a> {
@@ -377,11 +371,6 @@ impl<'a> NumberSelectBuilder<'a> {
         self
     }
 
-    pub fn keyboard_editable(mut self, editable: bool) -> NumberSelectBuilder<'a> {
-        self.keyboard_editable = editable;
-        self
-    }
-    
     pub fn parent<C: Into<ControlHandle>>(mut self, p: C) -> NumberSelectBuilder<'a> {
         self.parent = Some(p.into());
         self
@@ -390,9 +379,9 @@ impl<'a> NumberSelectBuilder<'a> {
     pub fn build(self, out: &mut NumberSelect) -> Result<(), NwgError> {
         let flags = self.flags.map(|f| f.bits()).unwrap_or(out.flags());
         let (btn_flags, text_flags) = if flags & WS_TABSTOP == WS_TABSTOP {
-            (ButtonFlags::VISIBLE | ButtonFlags::TAB_STOP, TextInputFlags::VISIBLE | TextInputFlags::TAB_STOP)
+            (ButtonFlags::VISIBLE | ButtonFlags::TAB_STOP, LabelFlags::VISIBLE)
         } else {
-            (ButtonFlags::VISIBLE, TextInputFlags::VISIBLE)
+            (ButtonFlags::VISIBLE, LabelFlags::VISIBLE)
         };
 
         let parent = match self.parent {
@@ -410,7 +399,6 @@ impl<'a> NumberSelectBuilder<'a> {
 
         *out = NumberSelect::default();
         *out.data.borrow_mut() = self.data;
-        *out.keyboard_editable.borrow_mut() = self.keyboard_editable;
         
         out.handle = ControlBase::build_hwnd()
             .class_name(out.class_name())
@@ -422,12 +410,13 @@ impl<'a> NumberSelectBuilder<'a> {
             .parent(Some(parent))
             .build()?;
 
-        TextInput::builder()
+        Label::builder()
             .text(&self.data.formatted_value())
-            .size((w-19, h))
+            .size((20, h))
+            .position((w-40, 2))
             .parent(&out.handle)
+            .background_color(Some([0xff, 0xff, 0xff]))
             .flags(text_flags)
-            .readonly(!self.keyboard_editable)
             .build(&mut out.edit)?;
 
         Button::builder()
@@ -488,7 +477,6 @@ impl<'a> NumberSelectBuilder<'a> {
                         unsafe { wh::set_window_text(handle, &text); }
                     }
                 },
-                
                 _ => {}
             }
             None
