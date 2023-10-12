@@ -63,7 +63,7 @@ impl FreeingTest {
             let message = MessageBoxOnDrop{};
             let handler = bind_raw_event_handler_inner(&self.custom_bind_button.handle, data.raw_callback_id, move |_hwnd, msg, _w, _l| {
                 if msg == WM_LBUTTONUP {
-                    &message;
+                    let _ = &message;
                     simple_message("Raw handler", &"Hello from raw dynamic handler");
                 }
                 None
@@ -92,7 +92,7 @@ impl FreeingTest {
                 match event {
                     Event::OnButtonClick => {
                         if &ctrl == &bind_handler_btn2 {    
-                            &message;
+                            let _ = &message;
                             simple_message("Handler", &"Hello from dynamic handler");
                         }
                     },

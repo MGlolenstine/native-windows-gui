@@ -189,7 +189,8 @@ fn everything() {
     #[cfg(feature = "high-dpi")]
     {
         unsafe {
-            crate::win32::high_dpi::set_dpi_awareness();
+            use winapi::um::winuser::SetProcessDPIAware;
+            SetProcessDPIAware();
         }
     }
 

@@ -14,7 +14,7 @@ pub extern crate stretch;
 mod tests;
 
 mod errors;
-pub use errors::{NwgError};
+pub use errors::NwgError;
 
 mod events;
 pub use events::*;
